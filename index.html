@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAMCO Hub</title>
+<style>
+  :root{
+    --bg:#1e2233; --panel:#262b40; --text:#e8eaf2; --muted:#9aa0b5;
+    --production:#c62828; --maintenance:#e07b00; --planning:#2e9e44;
+    --engineering:#7b1f24; --stockroom:#1976d2; --quality:#7b3fa0;
+    --purchasing:#2e9e44; --company:#e6c619; --hr:#d9b48f; --financials:#1b6e3c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+  header{display:flex;align-items:center;gap:16px;padding:14px 22px;background:#161a29;border-bottom:1px solid #333a55;position:sticky;top:0;z-index:5}
+  header h1{font-size:20px;letter-spacing:1px}
+  header h1 span{color:#c62828}
+  #search{margin-left:auto;background:var(--panel);border:1px solid #3a4160;color:var(--text);
+    padding:8px 14px;border-radius:8px;width:260px;font-size:14px;outline:none}
+  #search:focus{border-color:#5a6aa0}
+  .updated{color:var(--muted);font-size:12px}
+  main{display:flex;gap:14px;padding:20px;overflow-x:auto;align-items:flex-start}
+  .col{min-width:180px;flex:1}
+  .col h2{font-size:12px;letter-spacing:.8px;text-transform:uppercase;text-align:center;
+    padding:8px 4px;margin-bottom:10px;border-bottom:3px solid var(--c,#555);color:var(--text)}
+  .tile{display:block;width:100%;text-align:center;padding:12px 8px;margin-bottom:8px;border-radius:8px;
+    background:var(--c,#555);color:#fff;text-decoration:none;font-size:13px;font-weight:600;line-height:1.25;
+    border:none;cursor:pointer;transition:transform .08s,filter .12s;position:relative}
+  .tile:hover{transform:translateY(-1px);filter:brightness(1.15)}
+  .tile.soon{filter:grayscale(.55) brightness(.75);cursor:default}
+  .tile.soon:hover{transform:none}
+  .tile .badge{display:block;font-size:10px;font-weight:400;opacity:.85;margin-top:3px}
+  .tile.live::after{content:"● LIVE";position:absolute;top:4px;right:6px;font-size:9px;color:#7CFC9A}
+  .col--company .tile{color:#222}
+  .col--hr .tile{color:#222}
+  .hidden{display:none}
+  footer{padding:14px 22px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>CAMCO <span>MANUFACTURING</span> — Hub</h1>
+  <input id="search" type="search" placeholder="Search apps…">
+  <span class="updated" id="stamp"></span>
+</header>
+<main id="grid"></main>
+<footer>Tiles marked LIVE open web apps. Grey tiles are planned — they'll light up as each app moves to the web.</footer>
+
+<script>
+// ====== EDIT THIS LIST TO ADD/CHANGE TILES ==================================
+// status: "live" = working web app · "soon" = planned · "ext" = external link
+const SECTIONS = [
+  {name:"Production", color:"var(--production)", cls:"", items:[
+    {label:"Shop Floor Viewer", status:"soon"},
+    {label:"Production Time Sheets", status:"soon"},
+    {label:"Setup Sheets", status:"soon"},
+  ]},
+  {name:"Planning", color:"var(--planning)", cls:"", items:[
+    {label:"Production Planning / Expeditor", url:"https://camco-expeditor.netlify.app/", status:"live", note:"updates every 30 min"},
+    {label:"Kanban", status:"soon"},
+    {label:"Part Status", status:"soon"},
+    {label:"Days Behind", status:"soon"},
+  ]},
+  {name:"Costing", color:"var(--financials)", cls:"", items:[
+    {label:"Job Costing Dashboard", status:"soon", note:"next to deploy"},
+    {label:"Quoting", status:"soon"},
+  ]},
+  {name:"Purchasing", color:"var(--purchasing)", cls:"", items:[
+    {label:"PR Dashboard", status:"soon"},
+    {label:"Purchase Order Request", status:"soon"},
+    {label:"PO Savings Log", status:"soon"},
+  ]},
+  {name:"Quality", color:"var(--quality)", cls:"", items:[
+    {label:"Corrective Actions", status:"soon"},
+    {label:"SPC", status:"soon"},
+  ]},
+  {name:"Finance", color:"var(--financials)", cls:"", items:[
+    {label:"Weekly Financials", status:"soon"},
+    {label:"Metrics", status:"soon"},
+  ]},
+  {name:"HR", color:"var(--hr)", cls:"col--hr", items:[
+    {label:"People Directory", status:"soon"},
+    {label:"Time & Labor", status:"soon"},
+    {label:"Employee Training", status:"soon"},
+    {label:"Six Sigma Training", status:"soon", note:"React app — add URL"},
+  ]},
+  {name:"Company", color:"var(--company)", cls:"col--company", items:[
+    {label:"Phone Extensions", status:"soon"},
+    {label:"Company Documents", status:"soon"},
+  ]},
+];
+// ============================================================================
+
+const grid = document.getElementById("grid");
+function render(q){
+  q = (q||"").toLowerCase();
+  grid.innerHTML = "";
+  for(const s of SECTIONS){
+    const items = s.items.filter(i => !q || i.label.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
+    if(!items.length) continue;
+    const col = document.createElement("div");
+    col.className = "col " + (s.cls||"");
+    col.style.setProperty("--c", s.color);
+    col.innerHTML = `<h2>${s.name}</h2>`;
+    for(const i of items){
+      const el = document.createElement(i.url ? "a" : "div");
+      el.className = "tile " + (i.status==="live" ? "live" : i.status==="soon" ? "soon" : "");
+      if(i.url){ el.href = i.url; el.target = "_blank"; el.rel = "noopener"; }
+      el.innerHTML = i.label + (i.note ? `<span class="badge">${i.note}</span>` : (i.status==="soon" ? `<span class="badge">coming soon</span>` : ""));
+      col.appendChild(el);
+    }
+    grid.appendChild(col);
+  }
+}
+document.getElementById("search").oninput = e => render(e.target.value.trim());
+document.getElementById("stamp").textContent = "";
+render();
+</script>
+</body>
+</html>
