@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- CAMCO Hub v1.1 -->
+<!-- CAMCO Hub v2 - freshness dots + unlockable live counts -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10,17 +10,20 @@
     --bg:#1e2233; --panel:#262b40; --text:#e8eaf2; --muted:#9aa0b5;
     --production:#c62828; --maintenance:#e07b00; --planning:#2e9e44;
     --engineering:#7b1f24; --stockroom:#1976d2; --quality:#7b3fa0;
-    --purchasing:#2e9e44; --company:#e6c619; --hr:#d9b48f; --financials:#1b6e3c;
+    --purchasing:#2e9e44; --hr:#d9b48f; --financials:#1b6e3c;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
-  header{display:flex;align-items:center;gap:16px;padding:14px 22px;background:#161a29;border-bottom:1px solid #333a55;position:sticky;top:0;z-index:5}
-  header h1{font-size:20px;letter-spacing:1px}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;background:#161a29;border-bottom:1px solid #333a55;position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  header h1{font-size:20px;letter-spacing:1px;white-space:nowrap}
   header h1 span{color:#c62828}
   #search{margin-left:auto;background:var(--panel);border:1px solid #3a4160;color:var(--text);
-    padding:8px 14px;border-radius:8px;width:260px;font-size:14px;outline:none}
+    padding:8px 14px;border-radius:8px;width:220px;font-size:14px;outline:none}
   #search:focus{border-color:#5a6aa0}
-  .updated{color:var(--muted);font-size:12px}
+  #unlockBtn{background:var(--panel);border:1px solid #3a4160;color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer}
+  #unlockBtn:hover{border-color:#5a6aa0}
+  #unlockBox{display:none;gap:6px;align-items:center}
+  #unlockPw{background:var(--panel);border:1px solid #3a4160;color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px;width:150px}
   main{display:flex;gap:14px;padding:20px;overflow-x:auto;align-items:flex-start}
   .col{min-width:180px;flex:1}
   .col h2{font-size:12px;letter-spacing:.8px;text-transform:uppercase;text-align:center;
@@ -32,25 +35,34 @@
   .tile.soon{filter:grayscale(.55) brightness(.75);cursor:default}
   .tile.soon:hover{transform:none}
   .tile .badge{display:block;font-size:10px;font-weight:400;opacity:.85;margin-top:3px}
+  .tile .live-badge{display:inline-block;font-size:10px;font-weight:700;margin-top:4px;padding:1px 8px;border-radius:9px;background:rgba(0,0,0,.35)}
+  .tile .live-badge.alert{background:#7a1010;color:#ffd7d7}
   .tile.live::after{content:"● LIVE";position:absolute;top:4px;right:6px;font-size:9px;color:#7CFC9A}
-  .col--company .tile{color:#222}
+  .dot{position:absolute;top:5px;left:7px;width:9px;height:9px;border-radius:50%;background:#555;box-shadow:0 0 3px rgba(0,0,0,.6)}
+  .dot.green{background:#39d353}.dot.amber{background:#e8b13e}.dot.red{background:#f85149}
   .col--hr .tile{color:#222}
-  .hidden{display:none}
   footer{padding:14px 22px;color:var(--muted);font-size:12px}
+  @media (max-width:760px){
+    main{flex-wrap:wrap}
+    .col{min-width:46%}
+    #search{width:130px}
+    header{gap:8px}
+  }
 </style>
 </head>
 <body>
 <header>
   <h1>CAMCO <span>MANUFACTURING</span> — Hub</h1>
+  <button id="unlockBtn" title="Enter the shop password to show live counts on the tiles">Unlock live counts</button>
+  <span id="unlockBox"><input id="unlockPw" type="password" placeholder="Shop password"><button id="unlockGo" style="background:#1f6feb;border:none;color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer">Go</button><span id="unlockMsg" style="font-size:12px;color:#ff8f8f"></span></span>
   <input id="search" type="search" placeholder="Search apps…">
-  <span class="updated" id="stamp"></span>
 </header>
 <main id="grid"></main>
-<footer>Tiles marked LIVE open web apps. Grey tiles are planned — they'll light up as each app moves to the web.</footer>
+<footer id="foot">Dots show data freshness (green = current, red = pipeline may be down). "Unlock live counts" shows shop numbers on the tiles — finance never appears here.</footer>
 
 <script>
 // ====== EDIT THIS LIST TO ADD/CHANGE TILES ==================================
-// status: "live" = working web app · "soon" = planned · "ext" = external link
+const DATA_REPO='giggles8d/camco-data';
 const SECTIONS = [
   {name:"Production", color:"var(--production)", cls:"", items:[
     {label:"Shop Floor Viewer", status:"soon"},
@@ -58,17 +70,20 @@ const SECTIONS = [
     {label:"Setup Sheets", status:"soon"},
   ]},
   {name:"Planning", color:"var(--planning)", cls:"", items:[
-    {label:"Production Planning / Expeditor", url:"https://camco-expeditor.netlify.app/", status:"live", note:"updates every 30 min"},
+    {label:"Production Planning / Expeditor", url:"https://camco-expeditor.netlify.app/", status:"live",
+     data:{path:"camco_data.enc", freshMin:45, badge:"planning"}},
     {label:"Kanban", status:"soon"},
     {label:"Part Status", status:"soon"},
     {label:"Days Behind", status:"soon"},
   ]},
   {name:"Costing", color:"var(--financials)", cls:"", items:[
-    {label:"Job Costing Dashboard", url:"https://camco-costing.netlify.app/", status:"live", note:"same password as planning"},
+    {label:"Job Costing Dashboard", url:"https://camco-costing.netlify.app/", status:"live",
+     data:{path:"costing_data.enc", freshMin:1560}},
     {label:"Quoting", status:"soon"},
   ]},
   {name:"Purchasing", color:"var(--purchasing)", cls:"", items:[
-    {label:"PR Dashboard", url:"https://camco-purchasing.netlify.app/", status:"live", note:"same password as planning"},
+    {label:"PR Dashboard", url:"https://camco-purchasing.netlify.app/", status:"live",
+     data:{path:"purchasing_data.enc", freshMin:25, badge:"purchasing"}},
     {label:"Purchase Order Request", status:"soon"},
     {label:"PO Savings Log", status:"soon"},
   ]},
@@ -77,7 +92,8 @@ const SECTIONS = [
     {label:"SPC", status:"soon"},
   ]},
   {name:"Finance", color:"var(--financials)", cls:"", items:[
-    {label:"Weekly Financials", url:"https://camco-finance.netlify.app/", status:"live", note:"finance password only"},
+    {label:"Weekly Financials", url:"https://camco-finance.netlify.app/", status:"live",
+     note:"finance password only", data:{path:"finance_data.enc", freshMin:1560}},
     {label:"Metrics", status:"soon"},
   ]},
   {name:"HR", color:"var(--hr)", cls:"col--hr", items:[
@@ -90,6 +106,8 @@ const SECTIONS = [
 // ============================================================================
 
 const grid = document.getElementById("grid");
+const FRESH={};   // path -> {ageMin}
+const COUNTS={};  // badge key -> html
 function render(q){
   q = (q||"").toLowerCase();
   grid.innerHTML = "";
@@ -104,14 +122,95 @@ function render(q){
       const el = document.createElement(i.url ? "a" : "div");
       el.className = "tile " + (i.status==="live" ? "live" : i.status==="soon" ? "soon" : "");
       if(i.url){ el.href = i.url; el.target = "_blank"; el.rel = "noopener"; }
-      el.innerHTML = i.label + (i.note ? `<span class="badge">${i.note}</span>` : (i.status==="soon" ? `<span class="badge">coming soon</span>` : ""));
+      let extra = i.note ? `<span class="badge">${i.note}</span>` : (i.status==="soon" ? `<span class="badge">coming soon</span>` : "");
+      if(i.data){
+        const f=FRESH[i.data.path];
+        let dotCls="", tip="checking freshness…";
+        if(f){
+          const a=f.ageMin;
+          dotCls = a<=i.data.freshMin ? "green" : a<=i.data.freshMin*3 ? "amber" : "red";
+          tip = "data updated " + (a<60? Math.round(a)+" min" : (a/60).toFixed(1)+" h") + " ago";
+        }
+        extra += `<span class="dot ${dotCls}" title="${tip}"></span>`;
+        if(i.data.badge && COUNTS[i.data.badge]) extra += COUNTS[i.data.badge];
+      }
+      el.innerHTML = i.label + extra;
       col.appendChild(el);
     }
     grid.appendChild(col);
   }
 }
 document.getElementById("search").oninput = e => render(e.target.value.trim());
-document.getElementById("stamp").textContent = "";
+
+// ---- freshness via GitHub commits API (no password needed) ----
+async function loadFreshness(){
+  const paths=[]; SECTIONS.forEach(s=>s.items.forEach(i=>{ if(i.data) paths.push(i.data.path); }));
+  await Promise.all(paths.map(async p=>{
+    try{
+      const r=await fetch(`https://api.github.com/repos/${DATA_REPO}/commits?path=${p}&per_page=1`,{cache:"no-store"});
+      if(!r.ok) return;
+      const j=await r.json();
+      const t=new Date(j[0].commit.committer.date).getTime();
+      FRESH[p]={ageMin:(Date.now()-t)/60000};
+    }catch(e){}
+  }));
+  render(document.getElementById("search").value.trim());
+}
+loadFreshness();
+setInterval(loadFreshness, 5*60000);
+
+// ---- unlockable live counts (shop password; finance never included) ----
+async function decryptData(b64,password){
+  const raw=Uint8Array.from(atob(b64.trim()),c=>c.charCodeAt(0));
+  const salt=raw.slice(0,16),iv=raw.slice(16,32),ct=raw.slice(32);
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},km,{name:'AES-CBC',length:256},false,['decrypt']);
+  const pt=await crypto.subtle.decrypt({name:'AES-CBC',iv},key,ct);
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function fetchEnc(p){
+  const r=await fetch(`https://raw.githubusercontent.com/${DATA_REPO}/main/${p}?_=`+Date.now(),{cache:"no-store"});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return r.text();
+}
+async function loadCounts(pw){
+  let ok=false;
+  try{
+    const d=await decryptData(await fetchEnc("camco_data.enc"),pw);
+    const behind=(d.jobs||[]).filter(j=>j.EffDaysLate>0).length;
+    const stale=(d.jobs||[]).filter(j=>j.DaysSinceMove>=7&&j.Started).length;
+    COUNTS.planning=`<span class="live-badge ${behind?'alert':''}">${behind} behind · ${stale} stale</span>`;
+    ok=true;
+  }catch(e){}
+  try{
+    const d=await decryptData(await fetchEnc("purchasing_data.enc"),pw);
+    const prs=d.prs||[];
+    const hold=prs.filter(r=>r.HoldsProd).length, open=prs.filter(r=>r.Status==="1. Open").length;
+    COUNTS.purchasing=`<span class="live-badge ${hold?'alert':''}">${hold} holding prod · ${open} open</span>`;
+    ok=true;
+  }catch(e){}
+  return ok;
+}
+const ub=document.getElementById("unlockBtn"), ubox=document.getElementById("unlockBox");
+ub.onclick=()=>{ub.style.display="none";ubox.style.display="flex";document.getElementById("unlockPw").focus();};
+async function doUnlock(){
+  const pw=document.getElementById("unlockPw").value;
+  document.getElementById("unlockMsg").textContent="…";
+  const ok=await loadCounts(pw);
+  if(ok){
+    try{sessionStorage.setItem("camcoPw",pw);}catch(e){}
+    ubox.style.display="none";
+    render(document.getElementById("search").value.trim());
+  }else{
+    document.getElementById("unlockMsg").textContent="wrong password";
+  }
+}
+document.getElementById("unlockGo").onclick=doUnlock;
+document.getElementById("unlockPw").addEventListener("keydown",e=>{if(e.key==="Enter")doUnlock();});
+(function(){
+  let sp=null; try{sp=sessionStorage.getItem("camcoPw");}catch(e){}
+  if(sp){ loadCounts(sp).then(ok=>{ if(ok){ ub.style.display="none"; render(document.getElementById("search").value.trim()); } }); }
+})();
 render();
 </script>
 </body>
